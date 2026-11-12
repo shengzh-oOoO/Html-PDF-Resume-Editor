@@ -1,0 +1,1033 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>纸间 · 简历工作台</title>
+  <meta name="description" content="像编辑文档一样编辑简历，实时预览，导出 HTML 或 A4 PDF。">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/app.css?v=20261112-mp">
+
+  <!-- The resume styles are kept inline so “导出 HTML” can produce a fully
+       standalone document without fetching any external files. -->
+  <style id="resume-styles">
+    /* ============================================================
+       Resume / paper
+       ============================================================ */
+    .paper {
+      --accent: #205c4c;
+      --accent-soft: rgba(32, 92, 76, .1);
+      --accent-deep: #163f34;
+      --on-accent: #ffffff;
+      --ink: #24211d;
+      --muted: #777066;
+      --faint: #9a9388;
+      --line: #ddd7cc;
+      --paper: #fffdf9;
+      --sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", -apple-system, sans-serif;
+      --serif: "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", Georgia, serif;
+      --font-body: var(--sans);
+      --font-display: var(--serif);
+      --type-scale: 1;
+      --lh: 1.55;
+      --lh-scale: 1;
+      --margin: 15mm;
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0;
+      padding: var(--margin);
+      box-sizing: border-box;
+      position: relative;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--font-body);
+      font-size: calc(10.2pt * var(--type-scale));
+      line-height: var(--lh);
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      overflow: visible;
+    }
+    .paper * { box-sizing: border-box; }
+    .paper p, .paper h1, .paper h2, .paper h3, .paper ul, .paper li { margin: 0; padding: 0; }
+    .paper ul { list-style: none; }
+    .paper a { color: inherit; text-decoration: none; }
+    .paper.font-sans { --font-body: var(--sans); --font-display: var(--sans); }
+    .paper.font-serif { --font-body: var(--serif); --font-display: var(--serif); }
+    .paper.font-mix { --font-body: var(--sans); --font-display: var(--serif); }
+    .paper.tpl-sidebar { padding: 0; display: grid; grid-template-columns: 62mm 1fr; align-content: stretch; }
+    .paper.tpl-sidebar.font-serif { --font-body: var(--sans); --font-display: var(--serif); }
+
+    .rs-icon {
+      width: 8.5pt;
+      height: 8.5pt;
+      display: inline-block;
+      vertical-align: -1.1pt;
+      margin-right: 1.2mm;
+      flex: 0 0 auto;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: .72;
+    }
+
+    /* ---------- shared section furniture ---------- */
+    .rs-section { margin-top: 5.2mm; }
+    .rs-section:first-child { margin-top: 0; }
+    .rs-head {
+      display: flex;
+      align-items: baseline;
+      gap: 2.4mm;
+      padding-bottom: 1.5mm;
+      border-bottom: .45pt solid var(--line);
+      margin-bottom: 2.5mm;
+    }
+    .rs-head h2 {
+      font-family: var(--font-body);
+      font-size: calc(10.8pt * var(--type-scale));
+      line-height: calc(1.2 * var(--lh-scale));
+      font-weight: 650;
+      letter-spacing: .085em;
+      white-space: nowrap;
+    }
+    .rs-head h2::before {
+      content: "";
+      display: inline-block;
+      width: 2.1mm;
+      height: 2.1mm;
+      margin-right: 2.1mm;
+      background: var(--accent);
+      vertical-align: .15mm;
+    }
+    .rs-head .en {
+      font-family: var(--sans);
+      font-size: calc(6.8pt * var(--type-scale));
+      font-weight: 600;
+      letter-spacing: .19em;
+      color: var(--accent);
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .rs-head .rule { flex: 1; height: 0; }
+    .paper.no-bilingual .rs-head .en { display: none; }
+
+    .rs-entry { padding: 0 0 2.8mm; }
+    .rs-entry:last-child { padding-bottom: .8mm; }
+    .rs-entry + .rs-entry { margin-top: 2.8mm; border-top: .35pt solid color-mix(in srgb, var(--line) 62%, white); padding-top: 2.8mm; }
+    .rs-entry-grid { display: grid; grid-template-columns: 28mm 1fr; gap: 4.5mm; }
+    .rs-when {
+      font-size: calc(7.9pt * var(--type-scale));
+      color: var(--muted);
+      line-height: calc(1.5 * var(--lh-scale));
+      font-variant-numeric: tabular-nums;
+      padding-top: .35mm;
+    }
+    .rs-when .place { display: block; color: var(--faint); font-size: calc(7.4pt * var(--type-scale)); margin-top: .2mm; }
+    .rs-entry-top { display: flex; align-items: baseline; flex-wrap: wrap; gap: 1.5mm 2.4mm; margin-bottom: .7mm; }
+    .rs-entry-top h3 {
+      font-size: calc(10.3pt * var(--type-scale));
+      font-weight: 650;
+      letter-spacing: .01em;
+      line-height: calc(1.35 * var(--lh-scale));
+    }
+    .rs-entry-top .at {
+      font-size: calc(8.6pt * var(--type-scale));
+      color: var(--accent);
+      font-weight: 600;
+      letter-spacing: .015em;
+    }
+    .rs-entry-sub { font-size: calc(8.2pt * var(--type-scale)); color: var(--muted); line-height: calc(1.45 * var(--lh-scale)); }
+    .rs-link { color: var(--accent); font-size: calc(7.6pt * var(--type-scale)); letter-spacing: .02em; }
+
+    .rs-bullets { margin-top: 1.35mm; }
+    .rs-bullets li {
+      position: relative;
+      padding-left: 3.2mm;
+      margin: .55mm 0;
+      font-size: calc(9.1pt * var(--type-scale));
+      line-height: calc(1.57 * var(--lh-scale));
+      color: #38342e;
+      text-align: justify;
+    }
+    .rs-bullets li::before {
+      content: "";
+      position: absolute;
+      left: .2mm;
+      top: .68em;
+      width: 1.15mm;
+      height: 1.15mm;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: .88;
+    }
+
+    .rs-skill-row {
+      display: grid;
+      grid-template-columns: 23mm 1fr;
+      gap: 3mm;
+      padding: 1.2mm 0;
+      border-bottom: .3pt solid color-mix(in srgb, var(--line) 55%, white);
+      font-size: calc(8.7pt * var(--type-scale));
+      line-height: calc(1.5 * var(--lh-scale));
+    }
+    .rs-skill-row:last-child { border-bottom: 0; }
+    .rs-skill-label { color: var(--accent); font-weight: 650; letter-spacing: .04em; }
+    .rs-skill-items { color: #403b34; }
+
+    .rs-honor {
+      display: grid;
+      grid-template-columns: 12mm 1fr;
+      gap: 2.5mm;
+      padding: .95mm 0;
+      font-size: calc(8.65pt * var(--type-scale));
+      line-height: calc(1.45 * var(--lh-scale));
+      border-bottom: .3pt solid color-mix(in srgb, var(--line) 55%, white);
+    }
+    .rs-honor:last-child { border-bottom: 0; }
+    .rs-honor .year { color: var(--accent); font-weight: 650; font-variant-numeric: tabular-nums; }
+
+    .rs-edu { padding: 0 0 2.1mm; }
+    .rs-edu + .rs-edu { border-top: .3pt solid color-mix(in srgb, var(--line) 60%, white); padding-top: 2.1mm; }
+    .rs-edu-top { display: flex; align-items: baseline; justify-content: space-between; gap: 3mm; }
+    .rs-edu-top h3 { font-size: calc(9.8pt * var(--type-scale)); font-weight: 650; line-height: calc(1.4 * var(--lh-scale)); }
+    .rs-edu-top .period { font-size: calc(7.8pt * var(--type-scale)); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .rs-edu-degree { font-size: calc(8.4pt * var(--type-scale)); color: var(--accent); margin-top: .2mm; }
+    .rs-edu-detail { font-size: calc(7.7pt * var(--type-scale)); color: var(--muted); margin-top: .35mm; line-height: calc(1.45 * var(--lh-scale)); }
+
+    /* ============================================================
+       01 / Minimal
+       ============================================================ */
+    .tpl-minimal { padding: var(--margin); }
+    .tpl-minimal .masthead {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 9mm;
+      align-items: start;
+      padding-bottom: 4.2mm;
+      border-bottom: 1.25pt solid var(--ink);
+    }
+    .tpl-minimal .kicker {
+      display: flex;
+      align-items: center;
+      gap: 2.2mm;
+      margin-bottom: 2mm;
+      font-family: var(--sans);
+      font-size: calc(7.2pt * var(--type-scale));
+      font-weight: 650;
+      letter-spacing: .22em;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+    .tpl-minimal .kicker::before { content: ""; width: 5mm; height: .9pt; background: var(--accent); }
+    .tpl-minimal h1 {
+      font-family: var(--font-display);
+      font-size: calc(29pt * var(--type-scale));
+      line-height: calc(1.03 * var(--lh-scale));
+      font-weight: 600;
+      letter-spacing: .045em;
+      color: var(--ink);
+    }
+    .tpl-minimal .name-en {
+      margin-top: 1.3mm;
+      font-family: var(--sans);
+      font-size: calc(7.1pt * var(--type-scale));
+      letter-spacing: .27em;
+      color: var(--faint);
+      text-transform: uppercase;
+    }
+    .tpl-minimal .role {
+      display: inline-block;
+      margin-top: 2.6mm;
+      font-size: calc(10.3pt * var(--type-scale));
+      font-weight: 600;
+      letter-spacing: .08em;
+      color: var(--ink);
+    }
+    .tpl-minimal .role::after {
+      content: "";
+      display: block;
+      width: 6mm;
+      height: 1.3pt;
+      background: var(--accent);
+      margin-top: 1.4mm;
+    }
+    .tpl-minimal .tagline {
+      max-width: 126mm;
+      margin-top: 2mm;
+      font-size: calc(8.65pt * var(--type-scale));
+      line-height: calc(1.55 * var(--lh-scale));
+      color: var(--muted);
+      text-align: justify;
+    }
+    .tpl-minimal .photo {
+      width: 27mm;
+      height: 34mm;
+      border-radius: 1.2mm;
+      overflow: hidden;
+      background: var(--accent-soft);
+      margin-top: .5mm;
+    }
+    .tpl-minimal .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .tpl-minimal .contact {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.8mm 5.2mm;
+      padding: 2.4mm 0 .5mm;
+      font-size: calc(8.05pt * var(--type-scale));
+      color: var(--muted);
+      letter-spacing: .01em;
+    }
+    .tpl-minimal .contact span { white-space: nowrap; }
+    .tpl-minimal .contact .rs-icon { width: 8pt; height: 8pt; margin-right: 1mm; }
+    .tpl-minimal .rs-section { margin-top: 5.5mm; }
+    .tpl-minimal .rs-head h2 { font-size: calc(10.4pt * var(--type-scale)); }
+
+    /* ============================================================
+       02 / Sidebar
+       ============================================================ */
+    .tpl-sidebar .side {
+      background: var(--accent);
+      color: var(--on-accent);
+      padding: 13mm 9mm 12mm;
+      min-height: 297mm;
+      display: flex;
+      flex-direction: column;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .tpl-sidebar .side-photo {
+      width: 39mm;
+      height: 47mm;
+      border-radius: 1.4mm;
+      overflow: hidden;
+      margin: 0 auto 7mm;
+      background: color-mix(in srgb, var(--accent) 74%, black);
+      box-shadow: 0 0 0 .8mm color-mix(in srgb, var(--on-accent) 22%, transparent);
+    }
+    .tpl-sidebar .side-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .tpl-sidebar .side-name {
+      font-family: var(--font-display);
+      font-size: calc(22.5pt * var(--type-scale));
+      line-height: calc(1.1 * var(--lh-scale));
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-align: center;
+      color: var(--on-accent);
+    }
+    .tpl-sidebar .side-name-en {
+      margin-top: 1.5mm;
+      text-align: center;
+      font-family: var(--sans);
+      font-size: calc(6.5pt * var(--type-scale));
+      letter-spacing: .26em;
+      color: color-mix(in srgb, var(--on-accent) 66%, transparent);
+      text-transform: uppercase;
+    }
+    .tpl-sidebar .side-role {
+      margin: 2.5mm auto 6mm;
+      padding-top: 2.4mm;
+      border-top: .5pt solid color-mix(in srgb, var(--on-accent) 30%, transparent);
+      font-size: calc(8.3pt * var(--type-scale));
+      letter-spacing: .13em;
+      text-align: center;
+      color: color-mix(in srgb, var(--on-accent) 86%, transparent);
+    }
+    .tpl-sidebar .side-tagline {
+      margin-bottom: 6mm;
+      font-size: calc(8pt * var(--type-scale));
+      line-height: calc(1.6 * var(--lh-scale));
+      color: color-mix(in srgb, var(--on-accent) 74%, transparent);
+      text-align: left;
+    }
+    .tpl-sidebar .side-contact { display: flex; flex-direction: column; gap: 2.3mm; margin-bottom: 8mm; }
+    .tpl-sidebar .side-contact div {
+      display: flex;
+      align-items: flex-start;
+      gap: 1.5mm;
+      font-size: calc(7.65pt * var(--type-scale));
+      line-height: calc(1.4 * var(--lh-scale));
+      color: color-mix(in srgb, var(--on-accent) 88%, transparent);
+      word-break: break-word;
+    }
+    .tpl-sidebar .side-contact .rs-icon { width: 8pt; height: 8pt; margin: .2mm 0 0; opacity: .6; }
+    .tpl-sidebar .side-section { margin-top: 7.2mm; }
+    .tpl-sidebar .side-head {
+      display: flex;
+      align-items: baseline;
+      gap: 1.6mm;
+      padding-bottom: 1.4mm;
+      border-bottom: .45pt solid color-mix(in srgb, var(--on-accent) 26%, transparent);
+      margin-bottom: 2.4mm;
+    }
+    .tpl-sidebar .side-head h2 {
+      font-size: calc(9.2pt * var(--type-scale));
+      font-weight: 650;
+      letter-spacing: .1em;
+      color: var(--on-accent);
+      white-space: nowrap;
+    }
+    .tpl-sidebar .side-head .en {
+      font-family: var(--sans);
+      font-size: calc(6pt * var(--type-scale));
+      letter-spacing: .16em;
+      color: color-mix(in srgb, var(--on-accent) 55%, transparent);
+      white-space: nowrap;
+    }
+    .paper.tpl-sidebar.no-bilingual .side-head .en { display: none; }
+    .tpl-sidebar .side-skill { margin-bottom: 2.2mm; }
+    .tpl-sidebar .side-skill b {
+      display: block;
+      margin-bottom: .55mm;
+      font-size: calc(7.45pt * var(--type-scale));
+      font-weight: 650;
+      letter-spacing: .04em;
+      color: color-mix(in srgb, var(--on-accent) 82%, transparent);
+    }
+    .tpl-sidebar .side-skill p {
+      font-size: calc(7.55pt * var(--type-scale));
+      line-height: calc(1.5 * var(--lh-scale));
+      color: color-mix(in srgb, var(--on-accent) 92%, transparent);
+    }
+    .tpl-sidebar .side-edu { margin-bottom: 2.6mm; }
+    .tpl-sidebar .side-edu h3 { font-size: calc(8.2pt * var(--type-scale)); font-weight: 650; line-height: calc(1.4 * var(--lh-scale)); color: var(--on-accent); }
+    .tpl-sidebar .side-edu p { font-size: calc(7.3pt * var(--type-scale)); line-height: calc(1.45 * var(--lh-scale)); color: color-mix(in srgb, var(--on-accent) 72%, transparent); }
+    .tpl-sidebar .side-edu .when { font-size: calc(6.9pt * var(--type-scale)); letter-spacing: .03em; color: color-mix(in srgb, var(--on-accent) 58%, transparent); }
+
+    .tpl-sidebar .main {
+      padding: 14mm 13mm 12mm 11.5mm;
+      min-width: 0;
+      min-height: 297mm;
+      display: flex;
+      flex-direction: column;
+    }
+    .tpl-sidebar .main-intro {
+      padding-bottom: 5mm;
+      margin-bottom: 6.4mm;
+      border-bottom: .45pt solid var(--line);
+    }
+    .tpl-sidebar .main-kicker {
+      display: flex;
+      align-items: center;
+      gap: 2mm;
+      margin-bottom: 2.2mm;
+      font-family: var(--sans);
+      font-size: calc(6.6pt * var(--type-scale));
+      font-weight: 600;
+      letter-spacing: .22em;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+    .tpl-sidebar .main-kicker::after { content: ""; flex: 1; height: .4pt; background: var(--line); }
+    .tpl-sidebar .main-intro p {
+      font-family: var(--font-display);
+      font-size: calc(14.2pt * var(--type-scale));
+      line-height: calc(1.6 * var(--lh-scale));
+      color: #35312b;
+      letter-spacing: .015em;
+    }
+    .tpl-sidebar .rs-section { margin-top: 6.8mm; }
+    .tpl-sidebar .rs-head h2 { font-size: calc(10.2pt * var(--type-scale)); }
+    .tpl-sidebar .rs-head { margin-bottom: 3mm; }
+    .tpl-sidebar .rs-entry-grid { grid-template-columns: 23mm 1fr; gap: 4mm; }
+    .tpl-sidebar .rs-bullets li { font-size: calc(9.05pt * var(--type-scale)); line-height: calc(1.64 * var(--lh-scale)); }
+    .tpl-sidebar .rs-entry { padding-bottom: 3.2mm; }
+    .tpl-sidebar .rs-entry + .rs-entry { margin-top: 3.2mm; padding-top: 3.2mm; }
+    .tpl-sidebar .rs-footer {
+      margin-top: auto;
+      padding-top: 4mm;
+      border-top: .45pt solid var(--line);
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 4mm;
+      font-family: var(--sans);
+      font-size: calc(6.3pt * var(--type-scale));
+      letter-spacing: .16em;
+      color: var(--faint);
+      text-transform: uppercase;
+    }
+    .tpl-sidebar .side-foot {
+      margin-top: auto;
+      padding-top: 4mm;
+      border-top: .45pt solid color-mix(in srgb, var(--on-accent) 24%, transparent);
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 3mm;
+      font-family: var(--sans);
+      font-size: calc(6pt * var(--type-scale));
+      letter-spacing: .12em;
+      color: color-mix(in srgb, var(--on-accent) 55%, transparent);
+    }
+
+    /* ============================================================
+       03 / Editorial
+       ============================================================ */
+    .tpl-editorial {
+      padding: calc(var(--margin) - 1mm) var(--margin) var(--margin);
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--accent) 3.2%, var(--paper)) 0, var(--paper) 48mm);
+      display: flex;
+      flex-direction: column;
+    }
+    .tpl-editorial .masthead {
+      display: grid;
+      grid-template-columns: 43mm 1fr 25mm;
+      gap: 7mm;
+      align-items: center;
+      padding: 1mm 0 5.5mm;
+      border-bottom: 1.3pt solid var(--ink);
+    }
+    .tpl-editorial .masthead.no-photo { grid-template-columns: 43mm 1fr; }
+    .tpl-editorial .masthead.no-contact { grid-template-columns: 1fr 25mm; }
+    .tpl-editorial .masthead.no-photo.no-contact { grid-template-columns: 1fr; }
+    .tpl-editorial .contact-col {
+      display: flex;
+      flex-direction: column;
+      gap: 1.9mm;
+      font-size: calc(7.45pt * var(--type-scale));
+      line-height: calc(1.4 * var(--lh-scale));
+      color: var(--muted);
+      border-left: .5pt solid var(--accent);
+      padding-left: 3.5mm;
+      word-break: break-word;
+    }
+    .tpl-editorial .contact-col div { display: flex; align-items: flex-start; gap: 1.4mm; }
+    .tpl-editorial .contact-col .rs-icon { width: 7.6pt; height: 7.6pt; margin-top: .2mm; opacity: .6; }
+    .tpl-editorial .title-col { text-align: center; min-width: 0; }
+    .tpl-editorial .cv-kicker {
+      display: block;
+      margin-bottom: 2.6mm;
+      font-family: var(--sans);
+      font-size: calc(6.7pt * var(--type-scale));
+      font-weight: 600;
+      letter-spacing: .3em;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+    .tpl-editorial h1 {
+      font-family: var(--font-display);
+      font-size: calc(31pt * var(--type-scale));
+      line-height: calc(1 * var(--lh-scale));
+      font-weight: 500;
+      letter-spacing: .13em;
+      color: var(--ink);
+    }
+    .tpl-editorial .role-line {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2.5mm;
+      margin-top: 2.5mm;
+      font-size: calc(8.6pt * var(--type-scale));
+      letter-spacing: .1em;
+      color: var(--accent);
+    }
+    .tpl-editorial .role-line::before,
+    .tpl-editorial .role-line::after {
+      content: "";
+      width: 7mm;
+      height: .5pt;
+      background: color-mix(in srgb, var(--accent) 45%, white);
+    }
+    .tpl-editorial .tagline {
+      max-width: 108mm;
+      margin: 2.4mm auto 0;
+      font-size: calc(8.25pt * var(--type-scale));
+      line-height: calc(1.55 * var(--lh-scale));
+      color: var(--muted);
+      text-align: center;
+    }
+    .tpl-editorial .photo {
+      width: 25mm;
+      height: 31mm;
+      position: relative;
+      margin-left: auto;
+      z-index: 0;
+    }
+    .tpl-editorial .photo::before {
+      content: "";
+      position: absolute;
+      inset: 2.2mm -2.2mm -2.2mm 2.2mm;
+      background: var(--accent-soft);
+      border: .4pt solid color-mix(in srgb, var(--accent) 25%, white);
+      z-index: -1;
+    }
+    .tpl-editorial .photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      filter: saturate(.92);
+      border: .35pt solid var(--line);
+    }
+    .tpl-editorial .body-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1.62fr .88fr;
+      gap: 10mm;
+      padding-top: 6.4mm;
+    }
+    .tpl-editorial .col-main { min-width: 0; }
+    .tpl-editorial .col-side {
+      min-width: 0;
+      padding-left: 6.5mm;
+      border-left: .45pt solid var(--line);
+    }
+    .tpl-editorial .rs-section { margin-top: 7mm; }
+    .tpl-editorial .rs-section:first-child { margin-top: 0; }
+    .tpl-editorial .rs-head {
+      border-bottom: .6pt solid var(--ink);
+      padding-bottom: 1.7mm;
+      margin-bottom: 2.7mm;
+    }
+    .tpl-editorial .rs-head h2 {
+      font-family: var(--font-display);
+      font-size: calc(12.4pt * var(--type-scale));
+      font-weight: 600;
+      letter-spacing: .08em;
+    }
+    .tpl-editorial .rs-head h2::before {
+      width: 1.4mm;
+      height: 1.4mm;
+      margin-right: 1.8mm;
+      background: var(--accent);
+    }
+    .tpl-editorial .rs-head .en { font-size: calc(6.4pt * var(--type-scale)); letter-spacing: .16em; }
+    .tpl-editorial .rs-entry-grid { grid-template-columns: 1fr; gap: 0; }
+    .tpl-editorial .rs-when {
+      order: 2;
+      margin-top: .5mm;
+      font-family: var(--sans);
+      font-size: calc(7.2pt * var(--type-scale));
+      letter-spacing: .04em;
+      color: var(--faint);
+    }
+    .tpl-editorial .rs-when .place { display: inline; margin-left: 2mm; }
+    .tpl-editorial .rs-entry-top { margin-bottom: .5mm; }
+    .tpl-editorial .rs-entry-top h3 { font-family: var(--font-display); font-size: calc(11pt * var(--type-scale)); font-weight: 600; }
+    .tpl-editorial .rs-entry-top .at { font-size: calc(8.4pt * var(--type-scale)); }
+    .tpl-editorial .rs-entry + .rs-entry { margin-top: 3mm; padding-top: 3mm; }
+    .tpl-editorial .rs-bullets li { font-size: calc(8.6pt * var(--type-scale)); line-height: calc(1.62 * var(--lh-scale)); }
+    .tpl-editorial .col-side .rs-bullets li { font-size: calc(8.1pt * var(--type-scale)); }
+    .tpl-editorial .rs-skill-row { grid-template-columns: 1fr; gap: .2mm; padding: 1.3mm 0; font-size: calc(8.3pt * var(--type-scale)); }
+    .tpl-editorial .rs-skill-label { font-family: var(--font-display); font-size: calc(9.2pt * var(--type-scale)); letter-spacing: .04em; }
+    .tpl-editorial .rs-skill-items { font-size: calc(8.05pt * var(--type-scale)); color: var(--muted); }
+    .tpl-editorial .rs-honor { grid-template-columns: 10mm 1fr; font-size: calc(8.05pt * var(--type-scale)); }
+    .tpl-editorial .rs-edu { padding-bottom: 2.3mm; }
+    .tpl-editorial .rs-edu-top { display: block; }
+    .tpl-editorial .rs-edu-top h3 { font-family: var(--font-display); font-size: calc(9.6pt * var(--type-scale)); }
+    .tpl-editorial .rs-edu-top .period { display: block; margin-top: .2mm; }
+    .tpl-editorial .rs-edu + .rs-edu { padding-top: 2.3mm; }
+    .tpl-editorial .ed-footer {
+      margin-top: auto;
+      padding-top: 4.5mm;
+      border-top: .45pt solid var(--line);
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 5mm;
+      font-family: var(--sans);
+      font-size: calc(6.3pt * var(--type-scale));
+      letter-spacing: .15em;
+      color: var(--faint);
+      text-transform: uppercase;
+    }
+
+    /* ============================================================
+       Multi-page flow
+       ============================================================ */
+    .paper.page {
+      height: 297mm;
+      min-height: 297mm;
+      max-height: 297mm;
+      overflow: hidden;
+    }
+    .paper.page .page-flow {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+      position: relative;
+    }
+    .paper.page .page-flow > .rs-section:first-child { margin-top: 0; }
+    .rs-head h2 .rs-cont {
+      font-family: var(--sans);
+      font-size: .54em;
+      font-weight: 500;
+      letter-spacing: .08em;
+      color: var(--faint);
+      margin-left: 1.2mm;
+      vertical-align: .12em;
+    }
+
+    /* ---------- running header / page footer (single-column) ---------- */
+    .tpl-minimal.page { display: flex; flex-direction: column; }
+    .running-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 6mm;
+      padding-bottom: 2.4mm;
+      border-bottom: .8pt solid var(--ink);
+      margin-bottom: 4.8mm;
+    }
+    .running-id { display: flex; align-items: baseline; gap: 2.6mm; min-width: 0; }
+    .running-name {
+      font-family: var(--font-display);
+      font-size: calc(15pt * var(--type-scale));
+      font-weight: 600;
+      line-height: 1;
+      letter-spacing: .06em;
+      white-space: nowrap;
+    }
+    .running-role {
+      font-size: calc(7.4pt * var(--type-scale));
+      color: var(--accent);
+      letter-spacing: .08em;
+      white-space: nowrap;
+    }
+    .running-contact {
+      font-size: calc(6.8pt * var(--type-scale));
+      color: var(--faint);
+      letter-spacing: .02em;
+      text-align: right;
+      line-height: 1.5;
+      min-width: 0;
+    }
+    .page-foot {
+      margin-top: 3mm;
+      padding-top: 2.2mm;
+      border-top: .35pt solid var(--line);
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 4mm;
+      font-family: var(--sans);
+      font-size: calc(6.1pt * var(--type-scale));
+      letter-spacing: .14em;
+      color: var(--faint);
+      text-transform: uppercase;
+    }
+
+    /* ---------- sidebar continuation page ---------- */
+    .tpl-sidebar.page .main {
+      height: 297mm;
+      min-height: 297mm;
+      display: flex;
+      flex-direction: column;
+    }
+    .tpl-sidebar.page .page-flow { flex: 1 1 auto; min-height: 0; }
+    .tpl-sidebar.page .main-intro + .page-flow > .rs-section:first-child { margin-top: 6.8mm; }
+    .tpl-sidebar .side.compact {
+      padding: 15mm 9mm 12mm;
+      justify-content: flex-start;
+    }
+    .tpl-sidebar .side.compact .side-photo {
+      width: 30mm;
+      height: 36mm;
+      margin-bottom: 6mm;
+    }
+    .tpl-sidebar .side.compact .side-name { font-size: calc(17.5pt * var(--type-scale)); }
+    .tpl-sidebar .side.compact .side-role { margin-bottom: 8mm; }
+    .tpl-sidebar .side.compact .side-contact { margin-bottom: 9mm; }
+    .tpl-sidebar .side-cont {
+      margin-top: auto;
+      padding-top: 4mm;
+      border-top: .45pt solid color-mix(in srgb, var(--on-accent) 24%, transparent);
+      display: flex;
+      justify-content: space-between;
+      gap: 3mm;
+      font-family: var(--sans);
+      font-size: calc(5.9pt * var(--type-scale));
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: color-mix(in srgb, var(--on-accent) 54%, transparent);
+    }
+
+    /* ---------- editorial continuation page ---------- */
+    .tpl-editorial.page { height: 297mm; display: flex; flex-direction: column; }
+    .tpl-editorial.page .body-grid { flex: 1 1 auto; min-height: 0; }
+    .tpl-editorial.page .col-main { display: flex; flex-direction: column; min-height: 0; }
+    .tpl-editorial.page .page-flow { flex: 1 1 auto; min-height: 0; }
+    .tpl-editorial .body-grid.continuation {
+      grid-template-columns: 1fr;
+      padding-top: 5mm;
+    }
+    .ed-running {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 8mm;
+      padding-bottom: 3mm;
+      border-bottom: 1pt solid var(--ink);
+      margin-bottom: 1mm;
+    }
+    .ed-running .run-title {
+      display: flex;
+      align-items: baseline;
+      gap: 3mm;
+    }
+    .ed-running h2 {
+      font-family: var(--font-display);
+      font-size: calc(19pt * var(--type-scale));
+      font-weight: 500;
+      line-height: 1;
+      letter-spacing: .1em;
+    }
+    .ed-running .run-role {
+      font-size: calc(7.2pt * var(--type-scale));
+      letter-spacing: .1em;
+      color: var(--accent);
+    }
+    .ed-running .run-meta {
+      text-align: right;
+      font-family: var(--sans);
+      font-size: calc(6.2pt * var(--type-scale));
+      line-height: 1.55;
+      letter-spacing: .1em;
+      color: var(--faint);
+      text-transform: uppercase;
+    }
+
+    /* ---------- page labels ---------- */
+    .page-label { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+    @media print {
+      .paper.page { break-inside: avoid; page-break-inside: avoid; }
+    }
+
+    @page { size: A4; margin: 0; }
+    @media print {
+      .paper { box-shadow: none !important; margin: 0 !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="纸间首页">
+        <span class="brand-seal">紙</span>
+        <span class="brand-copy">
+          <strong>纸间</strong>
+          <small>RESUME STUDIO</small>
+        </span>
+      </a>
+
+      <div class="doc-meta">
+        <span class="doc-eyebrow">正在编辑</span>
+        <strong id="docTitle">林知夏 · 产品设计师</strong>
+      </div>
+
+      <div class="top-actions">
+        <span class="save-state" id="saveState"><i></i><span>已保存</span></span>
+        <button class="btn btn-ghost" id="exportHtmlBtn" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3"/></svg>
+          导出 HTML
+        </button>
+        <button class="btn btn-primary" id="exportPdfBtn" type="button">
+          导出 PDF
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m0 0-5-5m5 5-5 5"/></svg>
+        </button>
+        <div class="more-wrap">
+          <button class="icon-btn" id="moreBtn" type="button" aria-label="更多操作" aria-haspopup="menu" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>
+          </button>
+          <div class="menu" id="moreMenu" role="menu" hidden>
+            <button type="button" role="menuitem" data-menu-action="export-json">
+              <span>导出 JSON 源文件</span><small>备份 / 迁移</small>
+            </button>
+            <button type="button" role="menuitem" data-menu-action="import-json">
+              <span>导入 JSON</span><small>恢复之前的备份</small>
+            </button>
+            <div class="menu-sep"></div>
+            <button type="button" role="menuitem" data-menu-action="reset">
+              <span>恢复示例简历</span><small>重新体验完整版式</small>
+            </button>
+            <button type="button" role="menuitem" data-menu-action="multipage">
+              <span>载入多页示例</span><small>查看两页自动分页</small>
+            </button>
+            <button type="button" role="menuitem" class="is-danger" data-menu-action="clear">
+              <span>清空内容</span><small>保留当前版式设置</small>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="editor-pane" id="editorPane">
+        <div class="editor-head">
+          <div class="editor-tabs" role="tablist" aria-label="编辑面板">
+            <button class="editor-tab is-active" type="button" role="tab" aria-selected="true" data-tab="content">内容 <span>Content</span></button>
+            <button class="editor-tab" type="button" role="tab" aria-selected="false" data-tab="design">设计 <span>Design</span></button>
+          </div>
+          <button class="mobile-preview-btn" id="mobilePreviewBtn" type="button">预览</button>
+        </div>
+
+        <div class="editor-scroll" id="editorScroll">
+          <div class="demo-note" id="demoNote">
+            <span class="demo-badge">示例</span>
+            <p>以下内容均为示例，点击字段即可直接修改。内容较长会自动分为多页 A4。</p>
+            <button type="button" data-action="dismiss-note" aria-label="关闭提示">×</button>
+          </div>
+
+          <div class="editor-panel" id="contentPanel" role="tabpanel"></div>
+
+          <div class="editor-panel" id="designPanel" role="tabpanel" hidden>
+            <div class="design-block">
+              <div class="design-title"><h3>模板</h3><span>Template</span></div>
+              <div class="template-grid">
+                <button class="template-card is-active" type="button" data-template="minimal" aria-pressed="true">
+                  <span class="tpl-thumb thumb-minimal" aria-hidden="true">
+                    <i class="tt-name"></i><i class="tt-photo"></i><i class="tt-line l1"></i><i class="tt-line l2"></i><i class="tt-line l3"></i><i class="tt-line l4"></i>
+                  </span>
+                  <span class="tpl-label">留白<em>Minimal</em></span>
+                </button>
+                <button class="template-card" type="button" data-template="sidebar" aria-pressed="false">
+                  <span class="tpl-thumb thumb-sidebar" aria-hidden="true">
+                    <i class="tt-side"></i><i class="tt-photo"></i><i class="tt-line l1"></i><i class="tt-line l2"></i><i class="tt-line l3"></i><i class="tt-line l4"></i>
+                  </span>
+                  <span class="tpl-label">侧栏<em>Sidebar</em></span>
+                </button>
+                <button class="template-card" type="button" data-template="editorial" aria-pressed="false">
+                  <span class="tpl-thumb thumb-editorial" aria-hidden="true">
+                    <i class="tt-name"></i><i class="tt-photo"></i><i class="tt-rule"></i><i class="tt-line l1"></i><i class="tt-line l2"></i><i class="tt-line l3"></i>
+                  </span>
+                  <span class="tpl-label">杂志<em>Editorial</em></span>
+                </button>
+              </div>
+            </div>
+
+            <div class="design-block">
+              <div class="design-title"><h3>强调色</h3><span>Accent</span></div>
+              <div class="swatch-row" id="swatchRow">
+                <button class="swatch" type="button" data-accent="#205c4c" style="--sw:#205c4c" aria-label="松墨绿" title="松墨绿"></button>
+                <button class="swatch" type="button" data-accent="#243b60" style="--sw:#243b60" aria-label="靛青" title="靛青"></button>
+                <button class="swatch" type="button" data-accent="#9a4b33" style="--sw:#9a4b33" aria-label="陶土" title="陶土"></button>
+                <button class="swatch" type="button" data-accent="#2f2d2a" style="--sw:#2f2d2a" aria-label="石墨" title="石墨"></button>
+                <button class="swatch" type="button" data-accent="#5a466f" style="--sw:#5a466f" aria-label="绛紫" title="绛紫"></button>
+                <label class="swatch swatch-custom" title="自定义颜色">
+                  <input type="color" id="customColor" value="#205c4c" aria-label="自定义强调色">
+                  <span>+</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="design-block">
+              <div class="design-title"><h3>字体</h3><span>Type</span></div>
+              <div class="segmented typeface-group" id="typefaceGroup">
+                <button type="button" data-typeface="sans" class="is-active"><b>永</b><span>无衬线</span></button>
+                <button type="button" data-typeface="serif"><b>永</b><span>衬线</span></button>
+                <button type="button" data-typeface="mix"><b>永</b><span>标题衬线</span></button>
+              </div>
+            </div>
+
+            <div class="design-block">
+              <div class="design-title"><h3>排版</h3><span>Composition</span></div>
+              <div class="range-group">
+                <label class="range-row" for="fontSize">
+                  <span class="range-label">字号<output id="fontSizeOut">100%</output></span>
+                  <input type="range" id="fontSize" min="88" max="112" step="1" value="100">
+                </label>
+                <label class="range-row" for="lineHeight">
+                  <span class="range-label">行距<output id="lineHeightOut">1.55</output></span>
+                  <input type="range" id="lineHeight" min="135" max="180" step="1" value="155">
+                </label>
+                <label class="range-row" for="pageMargin">
+                  <span class="range-label">页边距<output id="pageMarginOut">15 mm</output></span>
+                  <input type="range" id="pageMargin" min="12" max="22" step="1" value="15">
+                </label>
+              </div>
+            </div>
+
+            <div class="design-block">
+              <div class="design-title"><h3>细节</h3><span>Details</span></div>
+              <label class="toggle-row">
+                <span><strong>显示个人照片</strong><small>关闭后版式自动留白</small></span>
+                <input type="checkbox" id="showPhotoToggle" checked>
+                <i aria-hidden="true"></i>
+              </label>
+              <label class="toggle-row">
+                <span><strong>双语栏目名</strong><small>在中文标题旁显示英文</small></span>
+                <input type="checkbox" id="bilingualToggle" checked>
+                <i aria-hidden="true"></i>
+              </label>
+            </div>
+
+            <p class="design-note">版式设置与简历内容只保存在当前浏览器，不会上传到任何服务器。</p>
+          </div>
+        </div>
+
+        <footer class="editor-foot">
+          <span><kbd>⌘</kbd><kbd>S</kbd> 保存</span>
+          <span><kbd>⌘</kbd><kbd>P</kbd> 导出 PDF</span>
+          <span class="auto-compile"><i></i> 自动编译</span>
+        </footer>
+      </aside>
+
+      <section class="stage" id="stage" aria-label="简历实时预览">
+        <div class="stage-bar">
+          <div class="template-switch" id="templateSwitch" role="group" aria-label="模板">
+            <button type="button" data-template="minimal" class="is-active">留白</button>
+            <button type="button" data-template="sidebar">侧栏</button>
+            <button type="button" data-template="editorial">杂志</button>
+          </div>
+          <div class="stage-tools">
+            <span class="page-badge" id="pageBadge">1 页 · A4</span>
+            <button class="fit-page-btn" id="fitPageBtn" type="button" hidden>适应一页</button>
+            <div class="zoom-control">
+              <button type="button" id="zoomOut" aria-label="缩小">−</button>
+              <span id="zoomLabel">72%</span>
+              <button type="button" id="zoomIn" aria-label="放大">＋</button>
+            </div>
+            <button class="icon-btn fit-canvas-btn" id="fitBtn" type="button" aria-label="适应画布" title="适应画布">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="canvas-scroll" id="canvasScroll">
+          <div class="canvas" id="canvas">
+            <div class="paper-shell" id="paperShell">
+              <div class="paper-stack" id="paperStack">
+                <div class="paper tpl-minimal font-mix" id="paper"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button class="mobile-close-preview" id="mobileClosePreview" type="button" aria-label="关闭预览">×</button>
+        <div class="stage-signature">A4 · 210 × 297 mm</div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+
+  <div class="modal-layer" id="confirmLayer" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <span class="modal-mark" aria-hidden="true">!</span>
+      <h3 id="confirmTitle">确认操作</h3>
+      <p id="confirmMsg"></p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" type="button" id="confirmCancel">取消</button>
+        <button class="btn btn-danger" type="button" id="confirmOk">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="print-root" aria-hidden="true"></div>
+  <div id="pagination-lab" aria-hidden="true"></div>
+  <input type="file" id="importInput" accept="application/json,.json" hidden>
+  <input type="file" id="photoInput" accept="image/jpeg,image/png,image/webp" hidden>
+
+  <noscript><div class="noscript">请开启 JavaScript 以使用简历编辑器。</div></noscript>
+
+  <script src="assets/sample-photo.js?v=20261112-mp"></script>
+  <script src="assets/app.js?v=20261112-mp"></script>
+</body>
+</html>
