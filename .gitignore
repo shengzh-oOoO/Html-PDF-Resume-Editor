@@ -1,2 +1,12 @@
 .DS_Store
 *.log
+
+# Personal resume data and uploaded photos stay local.
+data/*
+!data/.gitkeep
+assets/uploads/*
+!assets/uploads/.gitkeep
+
+# Python cache
+__pycache__/
+*.pyc

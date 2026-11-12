@@ -126,6 +126,7 @@
         city: '上海 · 徐汇',
         website: 'zhixia.design',
         photo: window.SAMPLE_PHOTO || '',
+        photoPath: '',
         photoX: 50,
         photoY: 34,
         photoZoom: 1
@@ -249,6 +250,7 @@
         city: '',
         website: '',
         photo: '',
+        photoPath: '',
         photoX: 50,
         photoY: 40,
         photoZoom: 1
@@ -284,6 +286,7 @@
 
     const data = {
       version: 1,
+      savedAt: typeof raw.savedAt === 'string' ? raw.savedAt : '',
       basics: {
         name: basicsIn.name === undefined ? fallback.basics.name : str(basicsIn.name),
         nameEn: basicsIn.nameEn === undefined ? fallback.basics.nameEn : str(basicsIn.nameEn),
@@ -295,6 +298,7 @@
         city: basicsIn.city === undefined ? fallback.basics.city : str(basicsIn.city),
         website: basicsIn.website === undefined ? fallback.basics.website : str(basicsIn.website),
         photo: basicsIn.photo === undefined ? fallback.basics.photo : str(basicsIn.photo),
+        photoPath: str(basicsIn.photoPath || (basicsIn.photo && !str(basicsIn.photo).startsWith('data:') ? basicsIn.photo : '')),
         photoX: clampNumber(basicsIn.photoX, 0, 100, 50),
         photoY: clampNumber(basicsIn.photoY, 0, 100, 40),
         photoZoom: clampNumber(basicsIn.photoZoom, 1, 2, 1)
@@ -385,6 +389,46 @@
 
   let state = loadState();
 
+  function blobToDataURL(blob) {
+    return new Promise(function (resolve, reject) {
+      const reader = new FileReader();
+      reader.onload = function () { resolve(String(reader.result || '')); };
+      reader.onerror = function () { reject(reader.error || new Error('read-failed')); };
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function hydrateServerState(raw) {
+    const data = normalizeData(raw);
+    const path = data.basics.photoPath ||
+      (data.basics.photo && !str(data.basics.photo).startsWith('data:') ? data.basics.photo : '');
+    if (path && !/^https?:/i.test(path)) {
+      try {
+        const response = await fetch(path, { cache: 'no-store' });
+        if (!response.ok) throw new Error('photo-not-found');
+        const blob = await response.blob();
+        if (!blob.type || !blob.type.startsWith('image/')) throw new Error('photo-not-image');
+        data.basics.photo = await blobToDataURL(blob);
+        data.basics.photoPath = path;
+      } catch (error) {
+        // A missing local photo should not render as a broken image.
+        data.basics.photo = '';
+        data.basics.photoPath = '';
+      }
+    }
+    return data;
+  }
+
+  function applyState(next) {
+    state = normalizeData(next);
+    ui.collapsedItems.clear();
+    renderEditor();
+    syncDesignControls();
+    renderPreview({ refit: true });
+    updateDocChrome();
+  }
+
+
   const ui = {
     tab: 'content',
     openSections: {
@@ -408,6 +452,15 @@
   let resizeRaf = null;
   let toastTimer = null;
   let confirmResolver = null;
+
+  // Local-file sync (provided by scripts/local_server.py). When the app is
+  // served as plain static files / GitHub Pages, these remain disabled and the
+  // editor gracefully falls back to localStorage only.
+  let syncAvailable = false;
+  let syncBootstrapped = false;
+  let serverSaveTimer = null;
+  let serverSaveInFlight = false;
+  let serverSaveQueued = false;
 
   /* ------------------------------------------------------------------------
      Contact / photo / shared render helpers
@@ -1469,6 +1522,7 @@
       clearTimeout(saveTimer);
       saveTimer = null;
     }
+    state.savedAt = (opts.keepSavedAt && state.savedAt) ? state.savedAt : new Date().toISOString();
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       ui.lastSaved = new Date();
@@ -1477,6 +1531,7 @@
       setSaveState('error', '仅本次有效');
       if (!opts.quiet) showToast('浏览器存储空间不足，照片可能过大。可先导出 JSON 备份。');
     }
+    if (!opts.skipServer) scheduleServerSync();
   }
 
   function queueSave() {
@@ -1486,6 +1541,129 @@
       saveTimer = null;
       saveNow();
     }, 420);
+  }
+
+  function scheduleServerSync() {
+    if (!syncAvailable) return;
+    if (serverSaveTimer) clearTimeout(serverSaveTimer);
+    serverSaveTimer = setTimeout(function () {
+      serverSaveTimer = null;
+      pushStateToServer();
+    }, 120);
+  }
+
+  function serverPayload() {
+    const copy = clone(state);
+    // Once the image file exists on disk, subsequent saves only need its path.
+    // This keeps ordinary edits tiny and makes sendBeacon safe for unload.
+    if (copy.basics && copy.basics.photoPath && copy.basics.photo &&
+        str(copy.basics.photo).startsWith('data:')) {
+      copy.basics.photo = copy.basics.photoPath;
+    }
+    return JSON.stringify(copy);
+  }
+
+  async function pushStateToServer() {
+    if (!syncAvailable) return false;
+    if (serverSaveInFlight) {
+      serverSaveQueued = true;
+      return false;
+    }
+    serverSaveInFlight = true;
+    try {
+      const response = await fetch('/api/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: serverPayload()
+      });
+      if (!response.ok) throw new Error('sync-failed');
+      const info = await response.json();
+      if (info && info.photo) state.basics.photoPath = info.photo;
+      setSaveState('saved', '已同步 ' + formatTime(new Date()));
+      return true;
+    } catch (error) {
+      setSaveState('error', '本地同步失败');
+      return false;
+    } finally {
+      serverSaveInFlight = false;
+      if (serverSaveQueued) {
+        serverSaveQueued = false;
+        setTimeout(pushStateToServer, 0);
+      }
+    }
+  }
+
+  function flushServerSync() {
+    if (!syncAvailable) return;
+    try {
+      const payload = new Blob([serverPayload()], { type: 'application/json' });
+      if (navigator.sendBeacon && navigator.sendBeacon('/api/state', payload)) return;
+      fetch('/api/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: serverPayload(),
+        keepalive: true
+      }).catch(function () { /* best effort on unload */ });
+    } catch (error) {
+      // Best effort only.
+    }
+  }
+
+  async function bootstrapLocalSync() {
+    if (!/^https?:$/.test(location.protocol)) {
+      syncBootstrapped = true;
+      if (!loadedFromStorage) saveNow({ quiet: true });
+      return;
+    }
+    try {
+      const health = await fetch('/api/health', { cache: 'no-store' });
+      if (!health.ok) throw new Error('no-local-api');
+      const healthInfo = await health.json().catch(function () { return null; });
+      if (!healthInfo || !healthInfo.ok) throw new Error('no-local-api');
+
+      setSaveState('saving', '读取本地文件…');
+      const response = await fetch('/api/state', { cache: 'no-store' });
+      if (response.ok) {
+        const raw = await response.json();
+        const serverSaved = Date.parse(raw.savedAt || '') || 0;
+        const localSaved = Date.parse(state.savedAt || '') || 0;
+        if (!localSaved || serverSaved >= localSaved) {
+          const hydrated = await hydrateServerState(raw);
+          applyState(hydrated);
+          state.savedAt = raw.savedAt || state.savedAt;
+          saveNow({ quiet: true, skipServer: true, keepSavedAt: true });
+          setSaveState('saved', '已读取本地文件');
+          showToast('已读取本地文件，修改会自动保存', { duration: 4200 });
+        } else {
+          syncAvailable = true;
+          await pushStateToServer();
+          showToast('已将当前修改同步到本地文件', { duration: 3500 });
+        }
+      } else if (response.status === 404) {
+        syncAvailable = true;
+        if (loadedFromStorage) {
+          saveNow({ quiet: true, skipServer: true });
+          await pushStateToServer();
+          showToast('已开启本地自动保存', { duration: 3500 });
+        } else {
+          // Do not write the demo sample to disk on a brand-new browser;
+          // wait for the first real edit so another browser's saved state is
+          // never overwritten by a throwaway preview.
+          setSaveState('saved', '本地文件已连接');
+          showToast('已连接本地文件，编辑后会自动保存', { duration: 3500 });
+        }
+      } else {
+        throw new Error('state-read-failed');
+      }
+      syncAvailable = true;
+      syncBootstrapped = true;
+      if (!document.querySelector('.toast')) setSaveState('saved', '本地文件已连接');
+    } catch (error) {
+      syncAvailable = false;
+      syncBootstrapped = true;
+      if (!loadedFromStorage) saveNow({ quiet: true });
+      setSaveState('saved', '已保存 ' + formatTime(ui.lastSaved));
+    }
   }
 
   function showToast(message, options) {
@@ -1728,6 +1906,7 @@
 
     if (action === 'remove-photo') {
       state.basics.photo = '';
+      state.basics.photoPath = '';
       ui.photoAdjustOpen = false;
       renderEditor();
       renderPreview();
@@ -1794,6 +1973,7 @@
       showToast('正在处理照片…', { duration: 1200 });
       const dataUrl = await compressImage(file);
       state.basics.photo = dataUrl;
+      state.basics.photoPath = '';
       state.basics.photoX = 50;
       state.basics.photoY = 34;
       state.basics.photoZoom = 1;
@@ -2145,7 +2325,8 @@ stackClone.outerHTML + '\n' +
       const parsed = JSON.parse(text);
       const raw = parsed && parsed.data && parsed.data.basics ? parsed.data : parsed;
       if (!raw || typeof raw !== 'object') throw new Error('invalid');
-      state = normalizeData(raw);
+      const hydrated = await hydrateServerState(raw);
+      state = hydrated;
       state.settings = Object.assign({}, DEFAULT_SETTINGS, state.settings);
       ui.collapsedItems.clear();
       ui.openSections.basics = true;
@@ -2356,7 +2537,13 @@ stackClone.outerHTML + '\n' +
       }
     });
 
-    window.addEventListener('beforeunload', function () { saveNow({ quiet: true }); });
+    window.addEventListener('beforeunload', function () {
+      saveNow({ quiet: true, skipServer: true });
+      flushServerSync();
+    });
+    window.addEventListener('pagehide', function () {
+      flushServerSync();
+    });
 
     window.addEventListener('resize', function () {
       if (resizeRaf) cancelAnimationFrame(resizeRaf);
@@ -2374,7 +2561,11 @@ stackClone.outerHTML + '\n' +
     renderEditor();
     renderPreview({ refit: true });
     setSaveState('saved', '已保存 ' + formatTime(ui.lastSaved));
-    if (!loadedFromStorage) saveNow({ quiet: true });
+
+    // If the local API is available, prefer the file in data/resume.json when
+    // it is newer than localStorage. Plain static hosting simply falls back to
+    // the browser-only copy.
+    bootstrapLocalSync();
 
     // Re-measure once system fonts are ready; this is what makes the initial
     // fit-to-screen zoom land on a stable value.
