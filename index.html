@@ -7,7 +7,7 @@
   <title>纸间 · 简历工作台</title>
   <meta name="description" content="像编辑文档一样编辑简历，实时预览，导出 HTML 或 A4 PDF。">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="assets/app.css?v=20261112-sync3">
+  <link rel="stylesheet" href="assets/app.css?v=20261113-optional">
 
   <!-- The resume styles are kept inline so “导出 HTML” can produce a fully
        standalone document without fetching any external files. -->
@@ -641,6 +641,10 @@
     /* ============================================================
        Multi-page flow
        ============================================================ */
+    .rs-entry-grid.no-when { grid-template-columns: 1fr; }
+    .rs-skill-row.no-label { grid-template-columns: 1fr; }
+    .rs-honor.no-year { grid-template-columns: 1fr; }
+
     .paper.page {
       height: 297mm;
       min-height: 297mm;
@@ -1027,7 +1031,7 @@
 
   <noscript><div class="noscript">请开启 JavaScript 以使用简历编辑器。</div></noscript>
 
-  <script src="assets/sample-photo.js?v=20261112-sync3"></script>
-  <script src="assets/app.js?v=20261112-sync3"></script>
+  <script src="assets/sample-photo.js?v=20261113-optional"></script>
+  <script src="assets/app.js?v=20261113-optional"></script>
 </body>
 </html>

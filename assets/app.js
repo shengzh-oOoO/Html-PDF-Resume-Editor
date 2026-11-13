@@ -510,17 +510,20 @@
   }
 
   function experienceEntryHTML(item) {
-    const company = item.company || item.role || '公司 / 组织';
-    const role = item.company ? item.role : '';
+    const company = str(item.company).trim();
+    const role = str(item.role).trim();
+    const title = company || role;
+    if (!title) return '';
     const meta = [];
     if (item.period) meta.push(esc(item.period));
     if (item.location) meta.push('<span class="place">' + esc(item.location) + '</span>');
+    const when = meta.length ? '<div class="rs-when">' + meta.join('') + '</div>' : '';
     return '<div class="rs-entry">' +
-      '<div class="rs-entry-grid">' +
-        '<div class="rs-when">' + meta.join('') + '</div>' +
+      '<div class="rs-entry-grid' + (when ? '' : ' no-when') + '">' +
+        when +
         '<div class="rs-entry-main">' +
-          '<div class="rs-entry-top"><h3>' + esc(company) + '</h3>' +
-            (role ? '<span class="at">' + esc(role) + '</span>' : '') +
+          '<div class="rs-entry-top"><h3>' + esc(title) + '</h3>' +
+            (company && role ? '<span class="at">' + esc(role) + '</span>' : '') +
           '</div>' +
           bulletsHTML(item.bullets) +
         '</div>' +
@@ -533,16 +536,20 @@
   }
 
   function projectEntryHTML(item) {
-    const name = item.name || item.role || '项目名称';
-    const role = item.name ? item.role : '';
+    const name = str(item.name).trim();
+    const role = str(item.role).trim();
+    const title = name || role;
+    if (!title) return '';
+    const meta = [];
+    if (item.period) meta.push(esc(item.period));
+    if (item.link) meta.push('<span class="place">' + esc(displayUrl(item.link)) + '</span>');
+    const when = meta.length ? '<div class="rs-when">' + meta.join('') + '</div>' : '';
     return '<div class="rs-entry">' +
-      '<div class="rs-entry-grid">' +
-        '<div class="rs-when">' + esc(item.period) +
-          (item.link ? '<span class="place">' + esc(displayUrl(item.link)) + '</span>' : '') +
-        '</div>' +
+      '<div class="rs-entry-grid' + (when ? '' : ' no-when') + '">' +
+        when +
         '<div class="rs-entry-main">' +
-          '<div class="rs-entry-top"><h3>' + esc(name) + '</h3>' +
-            (role ? '<span class="at">' + esc(role) + '</span>' : '') +
+          '<div class="rs-entry-top"><h3>' + esc(title) + '</h3>' +
+            (name && role ? '<span class="at">' + esc(role) + '</span>' : '') +
           '</div>' +
           bulletsHTML(item.bullets) +
         '</div>' +
@@ -555,9 +562,13 @@
   }
 
   function educationEntryHTML(item) {
-    const meta = [item.degree, item.location].filter(Boolean).join(' · ');
+    const school = str(item.school).trim();
+    const degree = str(item.degree).trim();
+    const title = school || degree;
+    if (!title) return '';
+    const meta = [school ? degree : '', item.location].filter(Boolean).join(' · ');
     return '<div class="rs-edu">' +
-      '<div class="rs-edu-top"><h3>' + esc(item.school || '学校名称') + '</h3>' +
+      '<div class="rs-edu-top"><h3>' + esc(title) + '</h3>' +
         (item.period ? '<span class="period">' + esc(item.period) + '</span>' : '') +
       '</div>' +
       (meta ? '<div class="rs-edu-degree">' + esc(meta) + '</div>' : '') +
@@ -570,9 +581,12 @@
   }
 
   function skillEntryHTML(item) {
-    return '<div class="rs-skill-row">' +
-      '<span class="rs-skill-label">' + esc(item.label || '技能') + '</span>' +
-      '<span class="rs-skill-items">' + esc(item.items) + '</span>' +
+    const items = str(item.items).trim();
+    if (!items) return '';
+    const label = str(item.label).trim();
+    return '<div class="rs-skill-row' + (label ? '' : ' no-label') + '">' +
+      (label ? '<span class="rs-skill-label">' + esc(label) + '</span>' : '') +
+      '<span class="rs-skill-items">' + esc(items) + '</span>' +
     '</div>';
   }
 
@@ -581,9 +595,12 @@
   }
 
   function honorEntryHTML(item) {
-    return '<div class="rs-honor">' +
-      '<span class="year">' + esc(item.year) + '</span>' +
-      '<span>' + esc(item.text) + '</span>' +
+    const text = str(item.text).trim();
+    if (!text) return '';
+    const year = str(item.year).trim();
+    return '<div class="rs-honor' + (year ? '' : ' no-year') + '">' +
+      (year ? '<span class="year">' + esc(year) + '</span>' : '') +
+      '<span>' + esc(text) + '</span>' +
     '</div>';
   }
 
@@ -600,22 +617,30 @@
   }
 
   function sideEducationBody(items) {
-    return items.map((item) =>
-      '<div class="side-edu">' +
-        '<h3>' + esc(item.school || '学校名称') + '</h3>' +
-        '<p>' + esc([item.degree, item.location].filter(Boolean).join(' · ')) + '</p>' +
-        '<p class="when">' + esc(item.period) + '</p>' +
-      '</div>'
-    ).join('');
+    return items.map((item) => {
+      const school = str(item.school).trim();
+      const degree = str(item.degree).trim();
+      const title = school || degree;
+      if (!title) return '';
+      const meta = [school ? degree : '', item.location].filter(Boolean).join(' · ');
+      return '<div class="side-edu">' +
+        '<h3>' + esc(title) + '</h3>' +
+        (meta ? '<p>' + esc(meta) + '</p>' : '') +
+        (item.period ? '<p class="when">' + esc(item.period) + '</p>' : '') +
+      '</div>';
+    }).join('');
   }
 
   function sideSkillsBody(items) {
-    return items.map((item) =>
-      '<div class="side-skill">' +
-        '<b>' + esc(item.label || '技能') + '</b>' +
-        '<p>' + esc(item.items) + '</p>' +
-      '</div>'
-    ).join('');
+    return items.map((item) => {
+      const itemsText = str(item.items).trim();
+      if (!itemsText) return '';
+      const label = str(item.label).trim();
+      return '<div class="side-skill">' +
+        (label ? '<b>' + esc(label) + '</b>' : '') +
+        '<p>' + esc(itemsText) + '</p>' +
+      '</div>';
+    }).join('');
   }
 
   /* ------------------------------------------------------------------------
@@ -634,7 +659,7 @@
 
     return '<header class="masthead">' +
       '<div class="identity">' +
-        '<div class="kicker">' + esc(b.roleEn || 'CURRICULUM VITAE') + '</div>' +
+        (b.roleEn ? '<div class="kicker">' + esc(b.roleEn) + '</div>' : '') +
         '<h1>' + esc(b.name || '你的名字') + '</h1>' +
         (b.nameEn ? '<div class="name-en">' + esc(b.nameEn) + '</div>' : '') +
         (b.role ? '<div class="role">' + esc(b.role) + '</div>' : '') +
@@ -694,8 +719,9 @@
         ).join('') + '</div>'
       : '';
 
+    const footerName = b.nameEn || b.name;
     const footer = '<footer class="ed-footer">' +
-      '<span>' + esc(b.nameEn || b.name || 'CURRICULUM VITAE') + '</span>' +
+      (footerName ? '<span>' + esc(footerName) + '</span>' : '') +
       (b.website ? '<span>' + esc(displayUrl(b.website)) + '</span>' : '') +
       '<span>PORTFOLIO · ' + new Date().getFullYear() + '</span>' +
     '</footer>';
@@ -703,7 +729,7 @@
     return '<header class="' + mastClass + '">' +
       contactCol +
       '<div class="title-col">' +
-        '<span class="cv-kicker">' + esc(b.roleEn || 'CURRICULUM VITAE') + '</span>' +
+        (b.roleEn ? '<span class="cv-kicker">' + esc(b.roleEn) + '</span>' : '') +
         '<h1>' + esc(b.name || '你的名字') + '</h1>' +
         (b.role ? '<div class="role-line">' + esc(b.role) + '</div>' : '') +
         (b.tagline ? '<p class="tagline">' + esc(b.tagline) + '</p>' : '') +
@@ -765,7 +791,7 @@
     const b = data.basics;
     return '<header class="masthead">' +
       '<div class="identity">' +
-        '<div class="kicker">' + esc(b.roleEn || 'CURRICULUM VITAE') + '</div>' +
+        (b.roleEn ? '<div class="kicker">' + esc(b.roleEn) + '</div>' : '') +
         '<h1>' + esc(b.name || '你的名字') + '</h1>' +
         (b.nameEn ? '<div class="name-en">' + esc(b.nameEn) + '</div>' : '') +
         (b.role ? '<div class="role">' + esc(b.role) + '</div>' : '') +
@@ -877,7 +903,7 @@
     return '<header class="' + mastClass + '">' +
       contactCol +
       '<div class="title-col">' +
-        '<span class="cv-kicker">' + esc(b.roleEn || 'CURRICULUM VITAE') + '</span>' +
+        (b.roleEn ? '<span class="cv-kicker">' + esc(b.roleEn) + '</span>' : '') +
         '<h1>' + esc(b.name || '你的名字') + '</h1>' +
         (b.role ? '<div class="role-line">' + esc(b.role) + '</div>' : '') +
         (b.tagline ? '<p class="tagline">' + esc(b.tagline) + '</p>' : '') +
@@ -894,8 +920,9 @@
 
   function editorialFooterHTML(data) {
     const b = data.basics;
+    const footerName = b.nameEn || b.name;
     return '<footer class="ed-footer">' +
-      '<span>' + esc(b.nameEn || b.name || 'CURRICULUM VITAE') + '</span>' +
+      (footerName ? '<span>' + esc(footerName) + '</span>' : '') +
       (b.website ? '<span>' + esc(displayUrl(b.website)) + '</span>' : '') +
       '<span class="page-label" data-page-label></span>' +
     '</footer>';
@@ -948,25 +975,40 @@
     return section;
   }
 
+  function entryHasVisibleContent(kind, item) {
+    if (kind === 'experience') return !!(str(item.company).trim() || str(item.role).trim());
+    if (kind === 'project') return !!(str(item.name).trim() || str(item.role).trim());
+    if (kind === 'education') return !!(str(item.school).trim() || str(item.degree).trim());
+    if (kind === 'skill') return !!str(item.items).trim();
+    if (kind === 'honor') return !!str(item.text).trim();
+    return true;
+  }
+
   function flowSections(data) {
     const template = data.settings.template;
     const sections = [];
+    const experience = data.experience.filter((item) => entryHasVisibleContent('experience', item));
+    const projects = data.projects.filter((item) => entryHasVisibleContent('project', item));
+    const education = data.education.filter((item) => entryHasVisibleContent('education', item));
+    const skills = data.skills.filter((item) => entryHasVisibleContent('skill', item));
+    const honors = data.honors.filter((item) => entryHasVisibleContent('honor', item));
+
     if (template === 'sidebar') {
-      if (data.experience.length) sections.push(makeFlowSection('experience', '工作经历', 'EXPERIENCE', data.experience, 'experience'));
-      if (data.projects.length) sections.push(makeFlowSection('projects', '项目经历', 'PROJECTS', data.projects, 'project'));
-      if (data.honors.length) sections.push(makeFlowSection('honors', '荣誉', 'HONORS', data.honors, 'honor'));
+      if (experience.length) sections.push(makeFlowSection('experience', '工作经历', 'EXPERIENCE', experience, 'experience'));
+      if (projects.length) sections.push(makeFlowSection('projects', '项目经历', 'PROJECTS', projects, 'project'));
+      if (honors.length) sections.push(makeFlowSection('honors', '荣誉', 'HONORS', honors, 'honor'));
       return sections;
     }
     if (template === 'editorial') {
-      if (data.experience.length) sections.push(makeFlowSection('experience', '工作经历', 'EXPERIENCE', data.experience, 'experience'));
-      if (data.projects.length) sections.push(makeFlowSection('projects', '项目经历', 'PROJECTS', data.projects, 'project'));
+      if (experience.length) sections.push(makeFlowSection('experience', '工作经历', 'EXPERIENCE', experience, 'experience'));
+      if (projects.length) sections.push(makeFlowSection('projects', '项目经历', 'PROJECTS', projects, 'project'));
       return sections;
     }
-    if (data.experience.length) sections.push(makeFlowSection('experience', '工作经历', 'EXPERIENCE', data.experience, 'experience'));
-    if (data.projects.length) sections.push(makeFlowSection('projects', '项目经历', 'PROJECTS', data.projects, 'project'));
-    if (data.education.length) sections.push(makeFlowSection('education', '教育背景', 'EDUCATION', data.education, 'education'));
-    if (data.skills.length) sections.push(makeFlowSection('skills', '技能', 'SKILLS', data.skills, 'skill'));
-    if (data.honors.length) sections.push(makeFlowSection('honors', '荣誉', 'HONORS', data.honors, 'honor'));
+    if (experience.length) sections.push(makeFlowSection('experience', '工作经历', 'EXPERIENCE', experience, 'experience'));
+    if (projects.length) sections.push(makeFlowSection('projects', '项目经历', 'PROJECTS', projects, 'project'));
+    if (education.length) sections.push(makeFlowSection('education', '教育背景', 'EDUCATION', education, 'education'));
+    if (skills.length) sections.push(makeFlowSection('skills', '技能', 'SKILLS', skills, 'skill'));
+    if (honors.length) sections.push(makeFlowSection('honors', '荣誉', 'HONORS', honors, 'honor'));
     return sections;
   }
 
