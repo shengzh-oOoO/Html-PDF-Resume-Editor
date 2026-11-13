@@ -1369,7 +1369,12 @@
         fieldHTML({ label: '学位 / 专业', value: item.degree, scope: 'education', id: item.id, field: 'degree', placeholder: '设计学 硕士' }) +
         fieldHTML({ label: '时间', value: item.period, scope: 'education', id: item.id, field: 'period', placeholder: '2017.09 — 2020.06' }) +
         fieldHTML({ label: '地点', value: item.location, scope: 'education', id: item.id, field: 'location', placeholder: '上海', optional: true }) +
-        fieldHTML({ label: '补充信息', value: item.detail, scope: 'education', id: item.id, field: 'detail', placeholder: '研究方向 / GPA / 奖学金', wide: true, optional: true });
+        textareaHTML({
+          label: '补充信息', value: item.detail, scope: 'education', id: item.id, field: 'detail',
+          placeholder: '研究方向 / GPA / 奖学金，可换行',
+          hint: '支持换行，例如研究方向、GPA、奖学金各占一行。',
+          wide: true, optional: true
+        });
       return itemCardHTML('education', item, index, state.education.length, item.school, item.degree, fields);
     }).join('');
   }
